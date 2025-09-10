@@ -63,7 +63,7 @@ Die Webapp ist dann unter `http://localhost:3000` erreichbar.
 | Tilgung | Jährliche Tilgungsrate | 2% |
 | Fixkosten | Jährliche Fixkosten (Versicherung, etc.) | 6.000 € |
 | Mietpreis | Wöchentlicher Mietpreis | 1.400 € |
-| Steuersatz | Persönlicher Steuersatz | 30% |
+| Eigennutzung | Anteil der Eigennutzung (für Steuerberechnung) | 30% |
 | Gebäudeanteil | Anteil des Gebäudes am Kaufpreis | 80% |
 | Anteil Vermietung | Anteil der vermieteten Nutzung | 65% |
 | AfA Nutzungsdauer | Nutzungsdauer für Abschreibung | 50 Jahre |

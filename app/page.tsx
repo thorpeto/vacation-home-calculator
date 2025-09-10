@@ -4,18 +4,27 @@ import { useState, useMemo } from "react";
 
 // --- Lokale Implementierung der Berechnungslogik (eingebettet, damit kein externes Modul benötigt wird) ---
 
-type Inputs = {
+interface Inputs {
   kaufpreis: number;
   eigenkapital: number;
   zinssatz_percent: number;
-  tilgung_percent: number;
-  fixkosten_jahr: number;
+  tilgungssatz_percent: number;
+  wochen_pro_jahr: number;
   mietpreis_pro_woche: number;
-  steuersatz_percent: number;
   gebaeudeanteil_percent: number;
+  afa_nutzungsdauer_jahre: number;
+  einkommen_steuersatz_percent: number;
   anteil_vermietung_percent: number;
-  afa_nutzungsdauer_jahre?: number;
-};
+  // Neue Kostenpositionen
+  instandhaltung_percent: number;
+  verwaltung_percent: number;
+  leerstand_percent: number;
+  nebenkosten_jahr: number;
+  buchungsgebuehren_percent: number;
+  endreinigung_pro_gast: number;
+  marketing_jahr: number;
+  reparaturen_jahr: number;
+}
 
 type Results = {
   darlehenssumme: number;
@@ -26,6 +35,9 @@ type Results = {
   afa_jahr: number;
   absetzbare_kosten: number;
   jahre_bis_abbezahlt: number | null;
+  // Neue Kostenberechnungen
+  instandhaltung_jahr: number;
+  gesamte_fixkosten_jahr: number;
 };
 
 type ScenarioRow = {
@@ -33,8 +45,11 @@ type ScenarioRow = {
   einnahmen: number;
   zu_versteuern: number;
   steuerlast: number;
-  cashflow_vor_steuer: number;
-  netto_nach_steuer: number;
+  operativer_cashflow: number;
+  operativer_cashflow_nach_steuer: number;
+  freier_cashflow: number;
+  cashflow_vor_steuer: number; // Deprecated, für Kompatibilität
+  netto_nach_steuer: number;   // Deprecated, für Kompatibilität
 };
 
 function pct(v: number) {
@@ -50,12 +65,21 @@ function computeBaseResults(inputs: Inputs): Results {
 
   const darlehenssumme = round2(inputs.kaufpreis - inputs.eigenkapital);
   const zinskosten_jahr = round2(darlehenssumme * pct(inputs.zinssatz_percent));
-  const tilgung_jahr = round2(darlehenssumme * pct(inputs.tilgung_percent));
+  const tilgung_jahr = round2(darlehenssumme * pct(inputs.tilgungssatz_percent));
   const annuitaet_jahr = round2(zinskosten_jahr + tilgung_jahr);
   const monatliche_rate = round2(annuitaet_jahr / 12);
   const afa_jahr = round2((inputs.kaufpreis * pct(inputs.gebaeudeanteil_percent)) / afa_nutzungsdauer);
 
-  const absetzbare_kosten = round2((inputs.fixkosten_jahr + zinskosten_jahr + afa_jahr) * pct(inputs.anteil_vermietung_percent));
+  // Neue realistische Kostenberechnungen
+  const instandhaltung_jahr = round2(inputs.kaufpreis * pct(inputs.instandhaltung_percent));
+  const gesamte_fixkosten_jahr = round2(
+    instandhaltung_jahr + 
+    inputs.nebenkosten_jahr + 
+    inputs.marketing_jahr + 
+    inputs.reparaturen_jahr
+  );
+
+  const absetzbare_kosten = round2((gesamte_fixkosten_jahr + zinskosten_jahr + afa_jahr) * pct(inputs.anteil_vermietung_percent));
 
   const jahre_bis_abbezahlt = tilgung_jahr > 0 ? round2(darlehenssumme / tilgung_jahr) : null;
 
@@ -68,6 +92,8 @@ function computeBaseResults(inputs: Inputs): Results {
     afa_jahr,
     absetzbare_kosten,
     jahre_bis_abbezahlt,
+    instandhaltung_jahr,
+    gesamte_fixkosten_jahr,
   };
 }
 
@@ -76,19 +102,47 @@ function generateScenarioTable(inputs: Inputs, minWeeks = 8, maxWeeks = 40): Sce
   const rows: ScenarioRow[] = [];
 
   for (let w = minWeeks; w <= maxWeeks; w++) {
-    const einnahmen = round2(w * inputs.mietpreis_pro_woche);
-    const zu_versteuern = round2(einnahmen - base.absetzbare_kosten);
-    const steuerlast = round2(Math.max(0, zu_versteuern) * pct(inputs.steuersatz_percent));
-    const cashflow_vor_steuer = round2(einnahmen - inputs.fixkosten_jahr - base.zinskosten_jahr - base.tilgung_jahr);
+    // Bruttoeinnahmen vor Leerstand
+    const brutto_einnahmen = round2(w * inputs.mietpreis_pro_woche);
+    
+    // Berücksichtigung des Leerstands
+    const einnahmen = round2(brutto_einnahmen * (1 - pct(inputs.leerstand_percent)));
+    
+    // Variable Kosten pro Woche
+    const verwaltungskosten = round2(einnahmen * pct(inputs.verwaltung_percent));
+    const buchungsgebuehren = round2(einnahmen * pct(inputs.buchungsgebuehren_percent));
+    const endreinigung_gesamt = round2(w * inputs.endreinigung_pro_gast);
+    
+    // Gesamte variable Kosten
+    const variable_kosten = round2(verwaltungskosten + buchungsgebuehren + endreinigung_gesamt);
+    
+    // Netto-Einnahmen nach variablen Kosten
+    const netto_einnahmen = round2(einnahmen - variable_kosten);
+    
+    // Steuerberechnung
+    const absetzbare_kosten = round2((base.gesamte_fixkosten_jahr + base.zinskosten_jahr + base.afa_jahr) * pct(inputs.anteil_vermietung_percent));
+    const zu_versteuern = round2(Math.max(0, brutto_einnahmen - absetzbare_kosten));
+    const steuerlast = round2(Math.max(0, zu_versteuern) * pct(inputs.einkommen_steuersatz_percent));    // Korrekte Cashflow-Berechnung mit allen neuen Kosten
+    const operativer_cashflow = round2(netto_einnahmen - base.gesamte_fixkosten_jahr - base.zinskosten_jahr);
+    const operativer_cashflow_nach_steuer = round2(operativer_cashflow - steuerlast);
+    
+    // Freier Cashflow = Operativer Cashflow nach Steuern - Tilgung
+    const freier_cashflow = round2(operativer_cashflow_nach_steuer - base.tilgung_jahr);
+    
+    // Deprecated Felder für Kompatibilität (alte falsche Berechnung)
+    const cashflow_vor_steuer = round2(einnahmen - base.gesamte_fixkosten_jahr - base.zinskosten_jahr - base.tilgung_jahr);
     const netto_nach_steuer = round2(cashflow_vor_steuer - steuerlast);
 
     rows.push({
       wochen: w,
-      einnahmen,
+      einnahmen: netto_einnahmen, // Verwende Netto-Einnahmen nach allen Abzügen
       zu_versteuern,
       steuerlast,
-      cashflow_vor_steuer,
-      netto_nach_steuer,
+      operativer_cashflow,
+      operativer_cashflow_nach_steuer,
+      freier_cashflow,
+      cashflow_vor_steuer, // Deprecated
+      netto_nach_steuer,   // Deprecated
     });
   }
 
@@ -109,12 +163,22 @@ export default function Home() {
     kaufpreis: 320000,
     eigenkapital: 100000,
     zinssatz_percent: 3.5,
-    tilgung_percent: 2,
-    fixkosten_jahr: 6000,
+    tilgungssatz_percent: 2,
+    wochen_pro_jahr: 26,
     mietpreis_pro_woche: 1400,
-    steuersatz_percent: 30,
+    einkommen_steuersatz_percent: 30,
     gebaeudeanteil_percent: 80,
-    anteil_vermietung_percent: 65,
+    afa_nutzungsdauer_jahre: 50,
+    anteil_vermietung_percent: 70,
+    // Realistische Kostenpositionen mit Standardwerten
+    instandhaltung_percent: 1.5,           // 1,5% des Kaufpreises
+    verwaltung_percent: 12,                // 12% der Mieteinnahmen
+    leerstand_percent: 0,                  // Kein Leerstand als Ausgangswert
+    nebenkosten_jahr: 2400,               // 200€/Monat (Strom, Wasser, Internet, Grundsteuer)
+    buchungsgebuehren_percent: 8,          // 8% der Buchungen (Airbnb, Booking.com)
+    endreinigung_pro_gast: 80,            // 80€ pro Gast/Buchung
+    marketing_jahr: 1200,                  // 100€/Monat (Fotos, Anzeigen)
+    reparaturen_jahr: 500,                 // 500€/Jahr Reparaturen
   });
 
   const result = useMemo(() => computeAll(inputs, 8, 40), [inputs]);
@@ -135,13 +199,22 @@ export default function Home() {
     kaufpreis: "Kaufpreis (€)",
     eigenkapital: "Eigenkapital (€)",
     zinssatz_percent: "Zinssatz (%)",
-    tilgung_percent: "Tilgung (%)",
-    fixkosten_jahr: "Fixkosten pro Jahr (€)",
+    tilgungssatz_percent: "Tilgung (%)",
+    wochen_pro_jahr: "Wochen pro Jahr",
     mietpreis_pro_woche: "Mietpreis pro Woche (€)",
-    steuersatz_percent: "Steuersatz (%)",
+    einkommen_steuersatz_percent: "Steuersatz (%)",
     gebaeudeanteil_percent: "Gebäudeanteil (%)",
     anteil_vermietung_percent: "Anteil Vermietung (%)",
-    afa_nutzungsdauer_jahre: "AfA Nutzungsdauer (Jahre)"
+    afa_nutzungsdauer_jahre: "AfA Nutzungsdauer (Jahre)",
+    // Neue Kostenfelder
+    instandhaltung_percent: "Instandhaltung (% Kaufpreis)",
+    verwaltung_percent: "Verwaltung (% Mieteinnahmen)",
+    leerstand_percent: "Leerstand (%)",
+    nebenkosten_jahr: "Nebenkosten pro Jahr (€)",
+    buchungsgebuehren_percent: "Buchungsgebühren (%)",
+    endreinigung_pro_gast: "Endreinigung pro Gast (€)",
+    marketing_jahr: "Marketing pro Jahr (€)",
+    reparaturen_jahr: "Reparaturen pro Jahr (€)"
   };
 
   const resultLabels: Record<keyof Results, string> = {
@@ -152,7 +225,9 @@ export default function Home() {
     monatliche_rate: "Monatliche Rate (€)",
     afa_jahr: "AfA pro Jahr (€)",
     absetzbare_kosten: "Absetzbare Kosten (€)",
-    jahre_bis_abbezahlt: "Jahre bis abbezahlt"
+    jahre_bis_abbezahlt: "Jahre bis abbezahlt",
+    instandhaltung_jahr: "Instandhaltung pro Jahr (€)",
+    gesamte_fixkosten_jahr: "Gesamte Fixkosten pro Jahr (€)"
   };
 
   return (
@@ -161,24 +236,93 @@ export default function Home() {
         <h1 className="text-3xl font-bold mb-8 text-center text-gray-800">Ferienhaus Vollrechner</h1>
 
         {/* Eingaben */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-6 text-gray-700">Eingabeparameter</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {inputKeys.map((key) => (
-              <div key={String(key)} className="flex flex-col">
-                <label className="text-sm font-medium mb-2 text-gray-600">
-                  {fieldLabels[key]}
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  name={String(key)}
-                  value={String(inputs[key] ?? "")}
-                  onChange={handleChange}
-                  className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-            ))}
+        <div className="space-y-8 mb-8">
+          {/* Grunddaten */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-700">💰 Grunddaten & Finanzierung</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {['kaufpreis', 'eigenkapital', 'zinssatz_percent', 'tilgungssatz_percent', 'mietpreis_pro_woche'].map((key) => (
+                <div key={key} className="flex flex-col">
+                  <label className="text-sm font-medium mb-2 text-gray-600">
+                    {fieldLabels[key as keyof Inputs]}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    name={key}
+                    value={String(inputs[key as keyof Inputs] ?? "")}
+                    onChange={handleChange}
+                    className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Kosten */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-6 text-red-700">🏠 Laufende Kosten</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {['instandhaltung_percent', 'nebenkosten_jahr', 'reparaturen_jahr', 'marketing_jahr'].map((key) => (
+                <div key={key} className="flex flex-col">
+                  <label className="text-sm font-medium mb-2 text-gray-600">
+                    {fieldLabels[key as keyof Inputs]}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    name={key}
+                    value={String(inputs[key as keyof Inputs] ?? "")}
+                    onChange={handleChange}
+                    className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Variable Kosten */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-6 text-orange-700">📊 Variable Kosten</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {['verwaltung_percent', 'buchungsgebuehren_percent', 'endreinigung_pro_gast', 'leerstand_percent'].map((key) => (
+                <div key={key} className="flex flex-col">
+                  <label className="text-sm font-medium mb-2 text-gray-600">
+                    {fieldLabels[key as keyof Inputs]}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    name={key}
+                    value={String(inputs[key as keyof Inputs] ?? "")}
+                    onChange={handleChange}
+                    className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Steuerliche Parameter */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-6 text-green-700">📋 Steuerliche Parameter</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {['einkommen_steuersatz_percent', 'gebaeudeanteil_percent', 'anteil_vermietung_percent', 'afa_nutzungsdauer_jahre'].map((key) => (
+                <div key={key} className="flex flex-col">
+                  <label className="text-sm font-medium mb-2 text-gray-600">
+                    {fieldLabels[key as keyof Inputs]}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    name={key}
+                    value={String(inputs[key as keyof Inputs] ?? "")}
+                    onChange={handleChange}
+                    className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -210,8 +354,9 @@ export default function Home() {
                   <th className="p-3 text-left text-sm font-semibold text-gray-700">Einnahmen (€)</th>
                   <th className="p-3 text-left text-sm font-semibold text-gray-700">Zu versteuern (€)</th>
                   <th className="p-3 text-left text-sm font-semibold text-gray-700">Steuerlast (€)</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-700">Cashflow vor Steuer (€)</th>
-                  <th className="p-3 text-left text-sm font-semibold text-gray-700">Netto nach Steuer (€)</th>
+                  <th className="p-3 text-left text-sm font-semibold text-gray-700">Operativer Cashflow (€)</th>
+                  <th className="p-3 text-left text-sm font-semibold text-gray-700">Nach Steuern (€)</th>
+                  <th className="p-3 text-left text-sm font-semibold text-gray-700">Freier Cashflow (€)</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,11 +371,14 @@ export default function Home() {
                     <td className="p-3 text-gray-700">{fmt(row.einnahmen)}</td>
                     <td className="p-3 text-gray-700">{fmt(row.zu_versteuern)}</td>
                     <td className="p-3 text-gray-700">{fmt(row.steuerlast)}</td>
-                    <td className={`p-3 font-medium ${row.cashflow_vor_steuer >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {fmt(row.cashflow_vor_steuer)}
+                    <td className={`p-3 font-medium ${row.operativer_cashflow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {fmt(row.operativer_cashflow)}
                     </td>
-                    <td className={`p-3 font-bold ${row.netto_nach_steuer >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                      {fmt(row.netto_nach_steuer)}
+                    <td className={`p-3 font-medium ${row.operativer_cashflow_nach_steuer >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {fmt(row.operativer_cashflow_nach_steuer)}
+                    </td>
+                    <td className={`p-3 font-bold ${row.freier_cashflow >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {fmt(row.freier_cashflow)}
                     </td>
                   </tr>
                 ))}
@@ -239,11 +387,51 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Erklärung der Cashflow-Berechnung */}
+        <div className="mt-8 bg-green-50 border border-green-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-green-800 mb-3">Realistische Kostenberücksichtigung</h3>
+          <div className="text-sm text-green-700 space-y-2">
+            <p><strong>Einnahmen:</strong> Brutto-Mieteinnahmen minus Leerstand, Verwaltung, Buchungsgebühren und Endreinigung</p>
+            <p><strong>Operativer Cashflow:</strong> Netto-Einnahmen minus alle Fixkosten und Zinsen (ohne Tilgung)</p>
+            <p><strong>Nach Steuern:</strong> Operativer Cashflow minus Steuerlast</p>
+            <p><strong>Freier Cashflow:</strong> Nach Steuern minus Tilgung (tatsächlich verfügbares Geld)</p>
+            <p className="mt-3 text-green-600">
+              <strong>Break-Even:</strong> Investment rechnet sich ab positivem freien Cashflow
+            </p>
+          </div>
+        </div>
+
+        {/* Kostenaufschlüsselung */}
+        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-3">Berücksichtigte Kosten</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-yellow-700">
+            <div>
+              <h4 className="font-semibold mb-2">Fixe Kosten:</h4>
+              <ul className="space-y-1">
+                <li>• Instandhaltung: {inputs.instandhaltung_percent}% des Kaufpreises</li>
+                <li>• Nebenkosten: {fmt(inputs.nebenkosten_jahr)}/Jahr</li>
+                <li>• Marketing: {fmt(inputs.marketing_jahr)}/Jahr</li>
+                <li>• Reparaturen: {fmt(inputs.reparaturen_jahr)}/Jahr</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Variable Kosten:</h4>
+              <ul className="space-y-1">
+                <li>• Leerstand: {inputs.leerstand_percent}% der geplanten Auslastung</li>
+                <li>• Verwaltung: {inputs.verwaltung_percent}% der Einnahmen</li>
+                <li>• Buchungsgebühren: {inputs.buchungsgebuehren_percent}% der Einnahmen</li>
+                <li>• Endreinigung: {fmt(inputs.endreinigung_pro_gast)}/Gast</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Hinweise */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-blue-800 mb-3">Wichtige Hinweise</h3>
           <ul className="text-sm text-blue-700 space-y-2">
-            <li>• Die Berechnungen sind Näherungen und ersetzen keine professionelle Beratung</li>
+            <li>• Die Berechnungen berücksichtigen jetzt realistische Kostenpositionen</li>
+            <li>• Tilgung ist kein Verlust, sondern Vermögensaufbau (Eigenkapitalerhöhung)</li>
             <li>• Änderungen der Zinssätze und Steuergesetze können die Ergebnisse beeinflussen</li>
             <li>• Zusätzliche Kosten wie Renovierungen oder Leerstand sind nicht berücksichtigt</li>
             <li>• Die AfA (Abschreibung für Abnutzung) wird standardmäßig mit 50 Jahren berechnet</li>
