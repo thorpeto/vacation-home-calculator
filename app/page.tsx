@@ -388,16 +388,59 @@ export default function Home() {
         </div>
 
         {/* Erklärung der Cashflow-Berechnung */}
-        <div className="mt-8 bg-green-50 border border-green-200 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-green-800 mb-3">Realistische Kostenberücksichtigung</h3>
-          <div className="text-sm text-green-700 space-y-2">
-            <p><strong>Einnahmen:</strong> Brutto-Mieteinnahmen minus Leerstand, Verwaltung, Buchungsgebühren und Endreinigung</p>
-            <p><strong>Operativer Cashflow:</strong> Netto-Einnahmen minus alle Fixkosten und Zinsen (ohne Tilgung)</p>
-            <p><strong>Nach Steuern:</strong> Operativer Cashflow minus Steuerlast</p>
-            <p><strong>Freier Cashflow:</strong> Nach Steuern minus Tilgung (tatsächlich verfügbares Geld)</p>
-            <p className="mt-3 text-green-600">
-              <strong>Break-Even:</strong> Investment rechnet sich ab positivem freien Cashflow
-            </p>
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-blue-800 mb-4">📊 Cashflow-Analyse verstehen</h3>
+          <div className="space-y-4">
+            
+            {/* Cashflow-Stufen */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              <div className="bg-white p-4 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-2">1️⃣ Operativer Cashflow</h4>
+                <p className="text-sm text-blue-700 mb-2">Einnahmen minus Betriebskosten und Zinsen</p>
+                <p className="text-xs text-blue-600">→ Operative Rentabilität der Immobilie</p>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-2">2️⃣ Nach Steuern</h4>
+                <p className="text-sm text-blue-700 mb-2">Operativer Cashflow minus Steuerlast</p>
+                <p className="text-xs text-blue-600">→ Nach Berücksichtigung der Einkommensteuer</p>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg border border-green-200 ring-2 ring-green-300">
+                <h4 className="font-semibold text-green-800 mb-2">3️⃣ Freier Cashflow</h4>
+                <p className="text-sm text-green-700 mb-2">Nach Steuern minus Tilgung</p>
+                <p className="text-xs text-green-600">→ <strong>Tatsächlich verfügbares Geld</strong></p>
+              </div>
+              
+            </div>
+            
+            {/* Wichtige Hinweise */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h4 className="font-semibold text-yellow-800 mb-2">💡 Wichtig zu verstehen:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-yellow-700">
+                <div>
+                  <p><strong>Tilgung ≠ Verlust:</strong></p>
+                  <p className="text-xs">Tilgung baut Ihr Vermögen auf, ist aber kein verfügbares Geld</p>
+                </div>
+                <div>
+                  <p><strong>Break-Even Punkt:</strong></p>
+                  <p className="text-xs">Investment rechnet sich ab positivem freien Cashflow</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Erfolgs-Indikator */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">✅</span>
+                <div>
+                  <p className="font-semibold text-green-800">Investment erfolgreich wenn:</p>
+                  <p className="text-sm text-green-700">Der freie Cashflow positiv wird → Das Ferienhaus bringt Ihnen monatlich Geld</p>
+                </div>
+              </div>
+            </div>
+            
           </div>
         </div>
 
