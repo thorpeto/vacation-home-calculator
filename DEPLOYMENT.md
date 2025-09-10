@@ -14,70 +14,71 @@
 ### Schritt 3: Automatisches Deployment
 Das Deployment erfolgt automatisch bei jedem Push auf den `main` Branch durch die GitHub Actions Workflow-Datei (`.github/workflows/deploy.yml`).
 
-## 🔧 Manuelle Deployment-Option
+## 🔧 Fehlerbehebung "Page not found"
 
-Falls Sie manuell deployen möchten:
+Falls die Seite nicht lädt oder "Page not found" anzeigt:
 
-```bash
-# 1. Build für Produktion erstellen
-npm run build
+### Lösung 1: Warten
+- Das erste Deployment kann 5-10 Minuten dauern
+- Überprüfen Sie den Status unter **Actions** > **Deploy Next.js to GitHub Pages**
 
-# 2. Das 'out' Verzeichnis enthält alle statischen Dateien
-# Diese können Sie manuell auf GitHub Pages hochladen
-```
+### Lösung 2: Repository Settings prüfen
+1. Gehen Sie zu **Settings** > **Pages**
+2. Stellen Sie sicher, dass Source auf **"GitHub Actions"** steht
+3. Nicht auf "Deploy from a branch" 
 
-## 📋 Was wurde konfiguriert
+### Lösung 3: Cache leeren
+- Drücken Sie Ctrl+F5 (Windows) oder Cmd+Shift+R (Mac)
+- Oder öffnen Sie die Seite im Inkognito-Modus
 
-### Next.js Konfiguration (`next.config.js`)
-```javascript
-{
-  output: 'export',           // Statischer Export
-  trailingSlash: true,        // URLs mit Slash am Ende
-  images: {
-    unoptimized: true         // Bilder nicht optimieren (für statisches Hosting)
-  }
-}
-```
+## 🌐 URL-Struktur
 
-### GitHub Actions Workflow
-- **Trigger**: Push auf `main` Branch
-- **Node.js Version**: 18
-- **Build Command**: `npm run build`
-- **Deploy Target**: `./out` Verzeichnis
-
-## 🌐 Zugriff auf die Webapp
-
-Nach erfolgreichem Deployment ist Ihre Webapp verfügbar unter:
+Ihre Webapp wird verfügbar sein unter:
 ```
 https://[IHR-GITHUB-USERNAME].github.io/vacation-home-calculator
 ```
 
+## 📋 Technische Konfiguration
+
+### Next.js Konfiguration
+- **Statischer Export**: `output: 'export'`
+- **Bedingte basePath**: Nur für GitHub Actions aktiviert
+- **Trailing Slash**: Für bessere Kompatibilität
+- **Unoptimierte Bilder**: Für statisches Hosting
+
+### GitHub Actions Features
+- **Node.js 18** Environment
+- **Automatische .nojekyll** Datei
+- **404.html Fallback** für SPA-Routing
+- **Build Caching** für schnellere Deployments
+
 ## 🔄 Deployment-Status überprüfen
 
 1. Gehen Sie zu **Actions** in Ihrem GitHub Repository
-2. Überprüfen Sie den Status des Deployment-Workflows
-3. Bei Erfolg erscheint ein grüner Haken
+2. Klicken Sie auf den neuesten Workflow-Lauf
+3. Überprüfen Sie den Status:
+   - 🟢 **Grün**: Deployment erfolgreich
+   - 🟡 **Gelb**: Deployment läuft
+   - 🔴 **Rot**: Deployment fehlgeschlagen
 
 ## ⚠️ Wichtige Hinweise
 
 - Das erste Deployment kann 5-10 Minuten dauern
-- Änderungen werden automatisch bei jedem Push deployed
+- Änderungen werden automatisch bei jedem Push deployed  
 - GitHub Pages unterstützt nur statische Websites (keine Server-Side-Rendering)
 - Die Webapp funktioniert vollständig clientseitig mit JavaScript
+- Bei Problemen überprüfen Sie die GitHub Actions Logs
 
-## 🔧 Fehlerbehebung
+## 🔧 Lokales Testen
 
-### Problem: 404 Fehler
-- Überprüfen Sie, ob GitHub Pages auf "GitHub Actions" eingestellt ist
-- Warten Sie 5-10 Minuten nach dem ersten Deployment
+```bash
+# Build für GitHub Pages erstellen
+npm run build
 
-### Problem: CSS nicht geladen
-- Überprüfen Sie die `next.config.js` Konfiguration
-- Stellen Sie sicher, dass `trailingSlash: true` gesetzt ist
-
-### Problem: Build fehlgeschlagen
-- Überprüfen Sie die GitHub Actions Logs
-- Stellen Sie sicher, dass alle Dependencies in `package.json` korrekt sind
+# Lokalen Server starten
+cd out && python3 -m http.server 8080
+# Dann öffnen: http://localhost:8080
+```
 
 ## 📱 Alternative: Vercel Deployment
 
