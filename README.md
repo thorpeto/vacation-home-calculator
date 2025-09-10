@@ -83,9 +83,27 @@ Die Webapp ist dann unter `http://localhost:3000` erreichbar.
 # Production Build erstellen
 npm run build
 
-# Production Server starten
-npm start
+# Für statischen Export (GitHub Pages)
+npm run export
 ```
+
+## 🚀 Deployment
+
+### GitHub Pages (Automatisch)
+1. Code auf GitHub pushen
+2. In Repository Settings → Pages → Source: "GitHub Actions" wählen
+3. Automatisches Deployment bei jedem Push auf `main`
+
+Die Webapp ist dann verfügbar unter:
+```
+https://[IHR-GITHUB-USERNAME].github.io/vacation-home-calculator
+```
+
+Detaillierte Deployment-Anleitung siehe [DEPLOYMENT.md](DEPLOYMENT.md)
+
+### Alternativen
+- **Vercel**: `npm install -g vercel && vercel --prod`
+- **Netlify**: Drag & Drop des `out/` Ordners
 
 ## Lizenz
 
