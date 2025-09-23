@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import fieldInfos from "./fieldInfos";
 
 // --- Lokale Implementierung der Berechnungslogik (eingebettet, damit kein externes Modul benötigt wird) ---
 
@@ -243,8 +244,9 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['kaufpreis', 'eigenkapital', 'zinssatz_percent', 'tilgungssatz_percent', 'mietpreis_pro_woche'].map((key) => (
                 <div key={key} className="flex flex-col">
-                  <label className="text-sm font-medium mb-2 text-gray-600">
+                  <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
                     {fieldLabels[key as keyof Inputs]}
+                    <InfoIconWithPopover infoKey={key} />
                   </label>
                   <input
                     type="number"
@@ -265,8 +267,9 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['instandhaltung_percent', 'nebenkosten_jahr', 'reparaturen_jahr', 'marketing_jahr'].map((key) => (
                 <div key={key} className="flex flex-col">
-                  <label className="text-sm font-medium mb-2 text-gray-600">
+                  <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
                     {fieldLabels[key as keyof Inputs]}
+                    <InfoIconWithPopover infoKey={key} />
                   </label>
                   <input
                     type="number"
@@ -287,8 +290,9 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['verwaltung_percent', 'buchungsgebuehren_percent', 'endreinigung_pro_gast', 'leerstand_percent'].map((key) => (
                 <div key={key} className="flex flex-col">
-                  <label className="text-sm font-medium mb-2 text-gray-600">
+                  <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
                     {fieldLabels[key as keyof Inputs]}
+                    <InfoIconWithPopover infoKey={key} />
                   </label>
                   <input
                     type="number"
@@ -309,8 +313,9 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['einkommen_steuersatz_percent', 'gebaeudeanteil_percent', 'anteil_vermietung_percent', 'afa_nutzungsdauer_jahre'].map((key) => (
                 <div key={key} className="flex flex-col">
-                  <label className="text-sm font-medium mb-2 text-gray-600">
+                  <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
                     {fieldLabels[key as keyof Inputs]}
+                    <InfoIconWithPopover infoKey={key} />
                   </label>
                   <input
                     type="number"
@@ -340,6 +345,48 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Neue Boxen für Rentabilität nach Steuern und freien Cashflow */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            {/* Rentabilität nach Steuern */}
+            {(() => {
+              const firstPositiveAfterTax = result.scenarios.find(row => row.operativer_cashflow_nach_steuer > 0);
+              return (
+                <div className="rounded-lg border p-4 bg-blue-50 text-blue-900 flex flex-col items-center">
+                  <div className="font-semibold text-lg mb-1">
+                    {firstPositiveAfterTax
+                      ? <>Positiv nach Steuern ab Woche {firstPositiveAfterTax.wochen}</>
+                      : <>Keine Rentabilität nach Steuern bei den aktuellen Annahmen</>
+                    }
+                  </div>
+                  {firstPositiveAfterTax && (
+                    <div className="text-sm text-blue-700">
+                      Erster positiver Cashflow nach Steuern: {fmt(firstPositiveAfterTax.operativer_cashflow_nach_steuer)} €
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {/* Rentabilität freier Cashflow */}
+            {(() => {
+              const firstPositiveFreeCashflow = result.scenarios.find(row => row.freier_cashflow > 0);
+              return (
+                <div className="rounded-lg border p-4 bg-green-50 text-green-900 flex flex-col items-center">
+                  <div className="font-semibold text-lg mb-1">
+                    {firstPositiveFreeCashflow
+                      ? <>Rentabel ab Woche {firstPositiveFreeCashflow.wochen} mit {fmt(firstPositiveFreeCashflow.freier_cashflow)} €</>
+                      : <>Kein positiver freier Cashflow bei den aktuellen Annahmen</>
+                    }
+                  </div>
+                  {firstPositiveFreeCashflow && (
+                    <div className="text-sm text-green-700">
+                      Erster positiver freier Cashflow: {fmt(firstPositiveFreeCashflow.freier_cashflow)} €
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -482,5 +529,28 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Info-Icon-Komponente mit Popover
+function InfoIconWithPopover({ infoKey }: { infoKey: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="ml-1 cursor-pointer relative inline-block" tabIndex={0}
+      onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+      onBlur={() => setOpen(false)}
+      onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
+    >
+      {/* Modernes Info-Icon (Material Design Stil) */}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="inline align-middle">
+        <circle cx="12" cy="12" r="12" fill="#2563eb" />
+        <text x="12" y="13" textAnchor="middle" alignmentBaseline="middle" fontSize="13" fill="#fff" fontFamily="Arial" dominantBaseline="middle">i</text>
+      </svg>
+      {open && (
+        <div className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-64 bg-white border border-blue-200 rounded-lg shadow-lg p-3 text-xs text-gray-800 animate-fade-in" style={{ minWidth: '180px' }}>
+          {fieldInfos[infoKey]}
+        </div>
+      )}
+    </span>
   );
 }
