@@ -1,12 +1,15 @@
 # Ferienhaus Vollrechner
 
-Eine moderne Webapp zur Berechnung der Rentabilität von Ferienhaus-Investitionen.
+Eine moderne Webapp zur realistischen Berechnung der Rentabilität von Ferienhaus-Investitionen.
 
 ## Features
 
-- **Vollständige Finanzanalyse**: Berechnung von Darlehenssumme, Zinsen, Tilgung und monatlichen Raten
-- **Steuerliche Optimierung**: Berücksichtigung von AfA (Abschreibung für Abnutzung) und absetzbaren Kosten
-- **Szenarioanalyse**: Detaillierte Darstellung verschiedener Vermietungsszenarien (8-40 Wochen)
+- **Vollständige Finanzanalyse**: Berechnung von Darlehenssumme, Zinsen, Tilgung, monatlicher Rate
+- **Realistische Kostenstruktur**: Alle laufenden, variablen und versteckten Kosten werden einzeln berücksichtigt
+- **Szenarioanalyse**: Detaillierte Darstellung verschiedener Vermietungsszenarien (8–40 Wochen)
+- **Steuerliche Optimierung**: Berücksichtigung von AfA (Abschreibung), absetzbaren Kosten und Steuersatz
+- **Info-Icons**: Jedes Eingabefeld hat ein Info-Icon mit verständlicher Erklärung
+- **Break-Even-Anzeige**: Zeigt ab welcher Woche das Investment nach Steuern und mit freiem Cashflow positiv wird
 - **Responsive Design**: Optimiert für Desktop und mobile Geräte
 - **Echtzeitberechnungen**: Sofortige Aktualisierung bei Änderung der Eingabeparameter
 
@@ -21,14 +24,18 @@ Die Webapp berechnet folgende Werte:
 - Monatliche Rate
 - AfA (Abschreibung für Abnutzung)
 - Absetzbare Kosten
+- Gesamte Fixkosten pro Jahr (Instandhaltung, Nebenkosten, Marketing, Reparaturen)
 
 ### Szenarioanalyse
-Für verschiedene Vermietungsdauern (8-40 Wochen):
-- Mieteinnahmen
+Für verschiedene Vermietungsdauern (8–40 Wochen):
+- Einnahmen (nach Leerstand)
+- Variable Kosten (Verwaltung, Buchungsgebühren, Endreinigung)
 - Zu versteuernder Betrag
 - Steuerlast
-- Cashflow vor Steuern
-- Netto-Cashflow nach Steuern
+- Operativer Cashflow (ohne Tilgung)
+- Cashflow nach Steuern
+- Freier Cashflow (nach Steuern und Tilgung)
+- Break-Even-Wochen (ab wann positiv)
 
 ## Installation und Start
 
@@ -44,7 +51,7 @@ npm install
 npm run dev
 ```
 
-Die Webapp ist dann unter `http://localhost:3000` erreichbar.
+Die Webapp ist dann unter `http://localhost:3000` (oder Port-Hinweis im Terminal) erreichbar.
 
 ## Technologie-Stack
 
@@ -53,29 +60,45 @@ Die Webapp ist dann unter `http://localhost:3000` erreichbar.
 - **Styling**: Tailwind CSS
 - **State Management**: React Hooks (useState, useMemo)
 
-## Eingabeparameter
+## Eingabeparameter & Erklärungen
 
-| Parameter | Beschreibung | Standardwert |
-|-----------|--------------|--------------|
-| Kaufpreis | Gesamtpreis der Immobilie | 320.000 € |
-| Eigenkapital | Verfügbares Eigenkapital | 100.000 € |
-| Zinssatz | Jährlicher Zinssatz für Darlehen | 3,5% |
-| Tilgung | Jährliche Tilgungsrate | 2% |
-| Fixkosten | Jährliche Fixkosten (Versicherung, etc.) | 6.000 € |
-| Mietpreis | Wöchentlicher Mietpreis | 1.400 € |
-| Eigennutzung | Anteil der Eigennutzung (für Steuerberechnung) | 30% |
-| Gebäudeanteil | Anteil des Gebäudes am Kaufpreis | 80% |
-| Anteil Vermietung | Anteil der vermieteten Nutzung | 65% |
-| AfA Nutzungsdauer | Nutzungsdauer für Abschreibung | 50 Jahre |
+Jedes Eingabefeld hat ein Info-Icon mit einer kurzen Erklärung zum Zweck und zur richtigen Eingabe.
+
+| Parameter                | Beschreibung                                                                 | Standardwert |
+|--------------------------|------------------------------------------------------------------------------|-------------|
+| Kaufpreis                | Gesamter Kaufpreis inkl. Nebenkosten                                         | 320.000 €   |
+| Eigenkapital             | Eigenes eingebrachtes Kapital                                                | 100.000 €   |
+| Zinssatz                 | Effektiver Jahreszins des Darlehens (%)                                      | 3,5 %       |
+| Tilgung                  | Jährlicher Tilgungssatz (%)                                                  | 2 %         |
+| Wochen pro Jahr          | Geplante Vermietungswochen pro Jahr                                          | 26          |
+| Mietpreis pro Woche      | Durchschnittlicher Mietpreis pro Woche                                       | 1.400 €     |
+| Instandhaltung           | Rücklage für Instandhaltung (% vom Kaufpreis)                                | 1,5 %       |
+| Nebenkosten              | Jährliche Nebenkosten (Strom, Wasser, Grundsteuer, etc.)                     | 2.400 €     |
+| Reparaturen              | Rücklage für Reparaturen pro Jahr                                            | 500 €       |
+| Marketing                | Jährliche Marketingkosten                                                    | 1.200 €     |
+| Verwaltung               | Verwaltungskosten (% der Mieteinnahmen)                                      | 12 %        |
+| Buchungsgebühren         | Buchungsgebühren (z.B. Airbnb, Booking.com) (% der Mieteinnahmen)            | 8 %         |
+| Endreinigung pro Gast    | Kosten für Endreinigung pro Buchung                                          | 80 €        |
+| Leerstand                | Anteil der Zeit ohne Vermietung (%)                                          | 0 %         |
+| Steuersatz               | Persönlicher Einkommensteuersatz (%)                                         | 30 %        |
+| Gebäudeanteil            | Anteil des Gebäudes am Kaufpreis (%)                                         | 80 %        |
+| Anteil Vermietung        | Anteil der Zeit, in der vermietet wird (%)                                   | 70 %        |
+| AfA Nutzungsdauer        | Abschreibungsdauer für das Gebäude (Jahre, Standard: 50)                     | 50          |
+
+## Neue UI-Features
+
+- **Info-Icons**: Bei jedem Eingabefeld, mit Mouseover/Klick erscheint eine verständliche Erklärung
+- **Break-Even-Anzeige**: Zeigt ab welcher Woche das Investment nach Steuern und mit freiem Cashflow positiv wird
+- **Farbkodierte Eingabebereiche**: Grunddaten (blau), Kosten (rot/orange), Steuern (grün)
+- **Alle Kosten transparent einzeln sichtbar**
 
 ## Wichtige Hinweise
 
 ⚠️ **Haftungsausschluss**: Die Berechnungen stellen Näherungswerte dar und ersetzen keine professionelle Steuer- oder Finanzberatung.
 
-- Änderungen der Zinssätze können die Ergebnisse erheblich beeinflussen
-- Steuergesetze können sich ändern
-- Zusätzliche Kosten wie Renovierungen oder Leerstandszeiten sind nicht berücksichtigt
-- Die AfA-Berechnung basiert auf aktuellen steuerlichen Bestimmungen
+- Änderungen der Zinssätze, Steuergesetze oder individueller Kosten können die Ergebnisse erheblich beeinflussen
+- Die AfA-Berechnung basiert auf aktuellen steuerlichen Bestimmungen (50 Jahre für Wohngebäude)
+- Alle Werte sind anpassbar, um individuelle Szenarien zu simulieren
 
 ## Build für Produktion
 
