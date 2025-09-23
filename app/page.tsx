@@ -353,7 +353,7 @@ export default function Home() {
             {(() => {
               const firstPositiveAfterTax = result.scenarios.find(row => row.operativer_cashflow_nach_steuer > 0);
               return (
-                <div className="rounded-lg border p-4 bg-blue-50 text-blue-900 flex flex-col items-center">
+                <div className="rounded-lg border p-4 bg-green-50 text-green-900 flex flex-col items-center">
                   <div className="font-semibold text-lg mb-1">
                     {firstPositiveAfterTax
                       ? <>Positiv nach Steuern ab Woche {firstPositiveAfterTax.wochen}</>
@@ -361,7 +361,7 @@ export default function Home() {
                     }
                   </div>
                   {firstPositiveAfterTax && (
-                    <div className="text-sm text-blue-700">
+                    <div className="text-sm text-green-700">
                       Erster positiver Cashflow nach Steuern: {fmt(firstPositiveAfterTax.operativer_cashflow_nach_steuer)} €
                     </div>
                   )}
