@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import fieldInfos from "./fieldInfos";
+import baseResultInfos from "./baseResultInfos";
 
 // --- Lokale Implementierung der Berechnungslogik (eingebettet, damit kein externes Modul benötigt wird) ---
 
@@ -12,6 +13,7 @@ interface Inputs {
   tilgungssatz_percent: number;
   wochen_pro_jahr: number;
   mietpreis_pro_woche: number;
+  mietpreis_pro_tag: number; // NEU: Tagesmiete, verknüpft mit Wochenmiete
   gebaeudeanteil_percent: number;
   afa_nutzungsdauer_jahre: number;
   einkommen_steuersatz_percent: number;
@@ -39,6 +41,7 @@ type Results = {
   // Neue Kostenberechnungen
   instandhaltung_jahr: number;
   gesamte_fixkosten_jahr: number;
+  restschuld_10jahre: number | null; // NEU: Restschuld nach 10 Jahren
 };
 
 type ScenarioRow = {
@@ -95,6 +98,15 @@ function computeBaseResults(inputs: Inputs): Results {
     jahre_bis_abbezahlt,
     instandhaltung_jahr,
     gesamte_fixkosten_jahr,
+    restschuld_10jahre: (() => {
+      // Annuitätendarlehen mit konstanter Tilgung
+      // Restschuld nach 10 Jahren: Anfangsschuld - 10 * jährliche Tilgung
+      if (tilgung_jahr > 0) {
+        const rest = darlehenssumme - 10 * tilgung_jahr;
+        return round2(rest > 0 ? rest : 0);
+      }
+      return null;
+    })(),
   };
 }
 
@@ -167,6 +179,7 @@ export default function Home() {
     tilgungssatz_percent: 2,
     wochen_pro_jahr: 26,
     mietpreis_pro_woche: 1400,
+    mietpreis_pro_tag: 1400 / 7, // Initialwert synchron zur Wochenmiete
     einkommen_steuersatz_percent: 30,
     gebaeudeanteil_percent: 80,
     afa_nutzungsdauer_jahre: 50,
@@ -203,6 +216,7 @@ export default function Home() {
     tilgungssatz_percent: "Tilgung (%)",
     wochen_pro_jahr: "Wochen pro Jahr",
     mietpreis_pro_woche: "Mietpreis pro Woche (€)",
+    mietpreis_pro_tag: "Mietpreis pro Tag (€)", // NEU: Label für Tagesmiete
     einkommen_steuersatz_percent: "Steuersatz (%)",
     gebaeudeanteil_percent: "Gebäudeanteil (%)",
     anteil_vermietung_percent: "Anteil Vermietung (%)",
@@ -228,7 +242,8 @@ export default function Home() {
     absetzbare_kosten: "Absetzbare Kosten (€)",
     jahre_bis_abbezahlt: "Jahre bis abbezahlt",
     instandhaltung_jahr: "Instandhaltung pro Jahr (€)",
-    gesamte_fixkosten_jahr: "Gesamte Fixkosten pro Jahr (€)"
+    gesamte_fixkosten_jahr: "Gesamte Fixkosten pro Jahr (€)",
+    restschuld_10jahre: "Restschuld nach 10 Jahren (€)", // NEU: Label für Restschuld
   };
 
   return (
@@ -242,7 +257,7 @@ export default function Home() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-6 text-blue-700">💰 Grunddaten & Finanzierung</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {['kaufpreis', 'eigenkapital', 'zinssatz_percent', 'tilgungssatz_percent', 'mietpreis_pro_woche'].map((key) => (
+              {['kaufpreis', 'eigenkapital', 'zinssatz_percent', 'tilgungssatz_percent', 'mietpreis_pro_woche', 'mietpreis_pro_tag'].map((key, idx, arr) => (
                 <div key={key} className="flex flex-col">
                   <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
                     {fieldLabels[key as keyof Inputs]}
@@ -253,7 +268,16 @@ export default function Home() {
                     step="any"
                     name={key}
                     value={String(inputs[key as keyof Inputs] ?? "")}
-                    onChange={handleChange}
+                    onChange={e => {
+                      const value = parseFloat(e.target.value);
+                      if (key === 'mietpreis_pro_woche') {
+                        setInputs(i => ({ ...i, mietpreis_pro_woche: value, mietpreis_pro_tag: Math.round((value / 7) * 100) / 100 }));
+                      } else if (key === 'mietpreis_pro_tag') {
+                        setInputs(i => ({ ...i, mietpreis_pro_tag: value, mietpreis_pro_woche: Math.round((value * 7) * 100) / 100 }));
+                      } else {
+                        handleChange(e);
+                      }
+                    }}
                     className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
@@ -337,8 +361,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(result.base).map(([key, value]) => (
               <div key={key} className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
-                <div className="text-sm font-medium text-gray-600 mb-1">
+                <div className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-1 relative">
                   {resultLabels[key as keyof Results]}
+                  <InfoIconWithPopover infoKey={key} infoSource={baseResultInfos} />
                 </div>
                 <div className="text-lg font-bold text-blue-800">
                   {fmt(value as number)}
@@ -533,22 +558,22 @@ export default function Home() {
 }
 
 // Info-Icon-Komponente mit Popover
-function InfoIconWithPopover({ infoKey }: { infoKey: string }) {
+function InfoIconWithPopover({ infoKey, infoSource }: { infoKey: string, infoSource?: Record<string, string> }) {
   const [open, setOpen] = useState(false);
+  const source = infoSource ?? fieldInfos;
   return (
     <span className="ml-1 cursor-pointer relative inline-block" tabIndex={0}
       onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
       onBlur={() => setOpen(false)}
       onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
     >
-      {/* Modernes Info-Icon (Material Design Stil) */}
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="inline align-middle">
         <circle cx="12" cy="12" r="12" fill="#2563eb" />
         <text x="12" y="13" textAnchor="middle" alignmentBaseline="middle" fontSize="13" fill="#fff" fontFamily="Arial" dominantBaseline="middle">i</text>
       </svg>
       {open && (
         <div className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-64 bg-white border border-blue-200 rounded-lg shadow-lg p-3 text-xs text-gray-800 animate-fade-in" style={{ minWidth: '180px' }}>
-          {fieldInfos[infoKey]}
+          {source[infoKey]}
         </div>
       )}
     </span>

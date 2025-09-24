@@ -6,6 +6,7 @@ const fieldInfos: Record<string, string> = {
   tilgungssatz_percent: "Jährlicher Tilgungssatz in Prozent der Darlehenssumme. Bestimmt, wie schnell das Darlehen zurückgezahlt wird.",
   wochen_pro_jahr: "Geplante Anzahl der Wochen pro Jahr, in denen die Immobilie vermietet werden soll.",
   mietpreis_pro_woche: "Durchschnittlicher Mietpreis pro Woche, den Sie für die Immobilie ansetzen können.",
+  mietpreis_pro_tag: "Durchschnittlicher Mietpreis pro Tag. Wird automatisch mit dem Wochenwert synchronisiert (und umgekehrt). Für die Berechnung zählt der Wochenwert.",
   einkommen_steuersatz_percent: "Ihr persönlicher Einkommensteuersatz. Relevant für die Berechnung der Steuerlast auf Mieteinnahmen.",
   gebaeudeanteil_percent: "Anteil des Gebäudes am Gesamtkaufpreis (Rest ist Grundstück, nicht abschreibbar).",
   anteil_vermietung_percent: "Prozentualer Anteil der Zeit, in der die Immobilie vermietet wird (Rest ist Eigennutzung).",
