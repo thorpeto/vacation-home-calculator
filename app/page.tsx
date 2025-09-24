@@ -246,6 +246,91 @@ export default function Home() {
     restschuld_10jahre: "Restschuld nach 10 Jahren (€)", // NEU: Label für Restschuld
   };
 
+  // --- Monte-Carlo-Simulation ---
+  const [mcAuslastungStreuung, setMcAuslastungStreuung] = useState(10);
+  const [mcMietpreisStreuung, setMcMietpreisStreuung] = useState(10);
+  const [mcKostenStreuung, setMcKostenStreuung] = useState(10);
+  const [mcLeerstandStreuung, setMcLeerstandStreuung] = useState(5);
+  const [mcZinsStreuung, setMcZinsStreuung] = useState(2);
+  const [mcSonderkosten, setMcSonderkosten] = useState(0);
+  const [mcWertentwicklung, setMcWertentwicklung] = useState(0);
+  const [mcResults, setMcResults] = useState<any>(null);
+
+  // Hilfsfunktion: Zufallswert im Bereich um Mittelwert
+  function randomStreuung(mittelwert: number, streuung: number) {
+    const min = mittelwert * (1 - streuung / 100);
+    const max = mittelwert * (1 + streuung / 100);
+    return Math.random() * (max - min) + min;
+  }
+
+  // Monte-Carlo-Simulation
+  function runMonteCarlo() {
+    const runs = 1000;
+    const cashflows: number[] = [];
+    for (let i = 0; i < runs; i++) {
+      // Zufällige Parameter
+      const auslastung = randomStreuung(inputs.wochen_pro_jahr, mcAuslastungStreuung);
+      const mietpreis = randomStreuung(inputs.mietpreis_pro_woche, mcMietpreisStreuung);
+      const kostenFaktor = 1 + (Math.random() - 0.5) * (mcKostenStreuung / 50); // ±Streuung
+      const leerstand = randomStreuung(inputs.leerstand_percent, mcLeerstandStreuung);
+      const zins = randomStreuung(inputs.zinssatz_percent, mcZinsStreuung);
+      const wertentwicklung = mcWertentwicklung;
+      // Berechnung wie im Szenario, aber mit Zufallswerten
+      const einnahmen = auslastung * mietpreis * (1 - leerstand / 100);
+      const fixkosten = (result.base.gesamte_fixkosten_jahr + mcSonderkosten) * kostenFaktor;
+      const variable_kosten = einnahmen * (pct(inputs.verwaltung_percent) + pct(inputs.buchungsgebuehren_percent)) + auslastung * inputs.endreinigung_pro_gast;
+      const zinskosten = (inputs.kaufpreis - inputs.eigenkapital) * pct(zins);
+      const operativer_cashflow = einnahmen - fixkosten - variable_kosten - zinskosten;
+      // Steuerlast grob wie bisher
+      const afa = (inputs.kaufpreis * pct(inputs.gebaeudeanteil_percent)) / inputs.afa_nutzungsdauer_jahre;
+      const absetzbare_kosten = (fixkosten + zinskosten + afa) * pct(inputs.anteil_vermietung_percent);
+      const zu_versteuern = Math.max(0, einnahmen - absetzbare_kosten);
+      const steuerlast = zu_versteuern * pct(inputs.einkommen_steuersatz_percent);
+      const cashflow_nach_steuer = operativer_cashflow - steuerlast;
+      const tilgung = (inputs.kaufpreis - inputs.eigenkapital) * pct(inputs.tilgungssatz_percent);
+      const freier_cashflow = cashflow_nach_steuer - tilgung;
+      // Wertentwicklung (optional, hier nur als Info)
+      cashflows.push(freier_cashflow);
+    }
+    // Kennzahlen
+    cashflows.sort((a, b) => a - b);
+    const min = Math.round(cashflows[0]);
+    const max = Math.round(cashflows[cashflows.length - 1]);
+    const median = Math.round(cashflows[Math.floor(cashflows.length / 2)]);
+  const negativ = cashflows.filter(v => v < 0).length;
+  const negativ_percent = Math.round(negativ / runs * 100);
+  const strongNegative = cashflows.filter(v => v < -1000).length;
+  const strongNegativePercent = Math.round(strongNegative / runs * 100);
+    // Histogramm
+    const bucketCount = 10;
+    const buckets = Array(bucketCount).fill(0);
+    const minVal = min, maxVal = max;
+    const bucketSize = (maxVal - minVal) / bucketCount;
+    for (const v of cashflows) {
+      let idx = Math.floor((v - minVal) / bucketSize);
+      if (idx < 0) idx = 0;
+      if (idx >= bucketCount) idx = bucketCount - 1;
+      buckets[idx]++;
+    }
+    // Korrigiere die Wertebereiche, sodass alle Werte abgedeckt sind und die Buckets lückenlos sind
+    const histogram = buckets.map((n, i) => {
+      // Wertebereich exakt berechnen, auch für negative Werte
+      const rangeMin = Math.floor(minVal + i * bucketSize);
+      const rangeMax = (i === bucketCount - 1) ? Math.ceil(maxVal) : Math.floor(minVal + (i + 1) * bucketSize);
+      const bar = '█'.repeat(Math.round(n / runs * 40));
+      return `${rangeMin}€ – ${rangeMax}€: ${bar} ${n}`;
+    }).join('\n');
+    setMcResults({
+      summary: `Median: ${median} €, Minimum: ${min} €, Maximum: ${max} €, Anteil negativ: ${negativ_percent}%`,
+      histogram,
+      median,
+      negativ_percent,
+      min,
+      max,
+      strongNegativePercent,
+    });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -257,6 +342,24 @@ export default function Home() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-6 text-blue-700">💰 Grunddaten & Finanzierung</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Wochen pro Jahr als eigenes Feld */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                  {fieldLabels.wochen_pro_jahr}
+                  <InfoIconWithPopover infoKey="wochen_pro_jahr" />
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="52"
+                  name="wochen_pro_jahr"
+                  value={String(inputs.wochen_pro_jahr)}
+                  onChange={handleChange}
+                  className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              {/* Restliche Felder */}
               {['kaufpreis', 'eigenkapital', 'zinssatz_percent', 'tilgungssatz_percent', 'mietpreis_pro_woche', 'mietpreis_pro_tag'].map((key, idx, arr) => (
                 <div key={key} className="flex flex-col">
                   <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
@@ -371,6 +474,31 @@ export default function Home() {
               </div>
             ))}
           </div>
+            {/* Zusatzmodule: Ergebnis und freier Cashflow bezogen auf geplante Wochen und Leerstand */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              {(() => {
+                const value = result.scenarios.find(row => row.wochen === inputs.wochen_pro_jahr)?.operativer_cashflow_nach_steuer;
+                const isPositive = value != null && value >= 0;
+                return (
+                  <div className={`rounded-lg border p-4 flex flex-col items-center ${isPositive ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}`}>
+                    <div className="font-semibold text-lg mb-1">Ergebnis nach Steuern</div>
+                    <div className="text-2xl font-bold mb-2">{fmt(value)}</div>
+                    <div className="text-xs text-gray-700">bei {inputs.wochen_pro_jahr} geplanten Wochen<br/>und {inputs.leerstand_percent}% Leerstand</div>
+                  </div>
+                );
+              })()}
+              {(() => {
+                const value = result.scenarios.find(row => row.wochen === inputs.wochen_pro_jahr)?.freier_cashflow;
+                const isPositive = value != null && value >= 0;
+                return (
+                  <div className={`rounded-lg border p-4 flex flex-col items-center ${isPositive ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}`}>
+                    <div className="font-semibold text-lg mb-1">Freier Cashflow</div>
+                    <div className="text-2xl font-bold mb-2">{fmt(value)}</div>
+                    <div className="text-xs text-gray-700">bei {inputs.wochen_pro_jahr} geplanten Wochen<br/>und {inputs.leerstand_percent}% Leerstand</div>
+                  </div>
+                );
+              })()}
+            </div>
 
           {/* Neue Boxen für Rentabilität nach Steuern und freien Cashflow */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -457,6 +585,96 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Monte-Carlo-Simulation */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
+          <h2 className="text-xl font-semibold mb-6 text-purple-700">🎲 Monte-Carlo-Simulation</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Auslastung Streuung (%)
+                <InfoIconWithPopover infoKey="mc_auslastung" infoSource={{ mc_auslastung: "Wie stark schwankt die tatsächliche Auslastung um den Mittelwert?" }} />
+              </label>
+              <input type="number" step="any" min="0" max="100" value={mcAuslastungStreuung} onChange={e => setMcAuslastungStreuung(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Mietpreis Streuung (%)
+                <InfoIconWithPopover infoKey="mc_mietpreis" infoSource={{ mc_mietpreis: "Wie stark schwankt der tatsächliche Mietpreis um den Mittelwert?" }} />
+              </label>
+              <input type="number" step="any" min="0" max="100" value={mcMietpreisStreuung} onChange={e => setMcMietpreisStreuung(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Kosten Streuung (%)
+                <InfoIconWithPopover infoKey="mc_kosten" infoSource={{ mc_kosten: "Wie stark schwanken die laufenden Kosten (Instandhaltung, Nebenkosten, Reparaturen, Verwaltung)?" }} />
+              </label>
+              <input type="number" step="any" min="0" max="100" value={mcKostenStreuung} onChange={e => setMcKostenStreuung(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Leerstand Streuung (%)
+                <InfoIconWithPopover infoKey="mc_leerstand" infoSource={{ mc_leerstand: "Wie stark schwankt der Leerstand um den Mittelwert?" }} />
+              </label>
+              <input type="number" step="any" min="0" max="100" value={mcLeerstandStreuung} onChange={e => setMcLeerstandStreuung(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Zins Streuung (%)
+                <InfoIconWithPopover infoKey="mc_zins" infoSource={{ mc_zins: "Wie stark kann der Zinssatz schwanken (z.B. bei Anschlussfinanzierung)?" }} />
+              </label>
+              <input type="number" step="any" min="0" max="100" value={mcZinsStreuung} onChange={e => setMcZinsStreuung(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Sonderkosten (€)
+                <InfoIconWithPopover infoKey="mc_sonderkosten" infoSource={{ mc_sonderkosten: "Einmalige oder unerwartete Kosten, z.B. Renovierung, größere Reparaturen." }} />
+              </label>
+              <input type="number" step="any" min="0" value={mcSonderkosten} onChange={e => setMcSonderkosten(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                Wertentwicklung Immobilie (%/Jahr)
+                <InfoIconWithPopover infoKey="mc_wertentwicklung" infoSource={{ mc_wertentwicklung: "Prognose für die jährliche Wertsteigerung oder -minderung der Immobilie." }} />
+              </label>
+              <input type="number" step="any" value={mcWertentwicklung} onChange={e => setMcWertentwicklung(Number(e.target.value))} className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors" />
+            </div>
+            <div className="flex flex-col justify-end">
+              <button className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 transition-colors" onClick={runMonteCarlo}>Simulation starten</button>
+            </div>
+          </div>
+          {/* Ergebnisbereich: Histogramm und Kennzahlen (Platzhalter) */}
+          {/* Ergebnisbereich entfernt: Histogramm und Tabelle */}
+          {mcResults && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-purple-800 mb-2">Ergebnis (Monte-Carlo-Simulation)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 mb-1">Median Cashflow/Jahr</div>
+                  <div className="text-2xl font-bold text-green-700">{mcResults.median} €</div>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 mb-1">Risiko Verlust</div>
+                  <div className="text-2xl font-bold text-red-700">{mcResults.negativ_percent} %</div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                  <div className="text-xs text-gray-600 mb-1">Spanne</div>
+                  <div className="text-lg font-bold text-blue-700">{mcResults.min} € – {mcResults.max} €</div>
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-gray-800">
+                {mcResults.negativ_percent < 50
+                  ? <>In <b>{100 - mcResults.negativ_percent}%</b> der Fälle ist Ihr freier Cashflow positiv.<br />Das Risiko eines Verlusts liegt bei <b>{mcResults.negativ_percent}%</b>.</>
+                  : <>Achtung: In <b>{mcResults.negativ_percent}%</b> der Fälle ist Ihr Cashflow negativ.<br />Das Investment ist riskant!</>
+                }
+                <br />
+                <span className="text-xs text-gray-500">Best Case: {mcResults.max} €, Worst Case: {mcResults.min} €</span>
+                <br />
+                <span className="text-xs text-red-700">In {mcResults.strongNegativePercent ?? 0}% der Fälle ist der negative Cashflow größer als 1.000&nbsp;€.</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Erklärung der Cashflow-Berechnung */}
