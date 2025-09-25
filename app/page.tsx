@@ -1,4 +1,27 @@
+
 "use client";
+// Info-Icon-Komponente mit Popover
+function InfoIconWithPopover({ infoKey, infoSource }: { infoKey: string, infoSource?: Record<string, string> }) {
+  const [open, setOpen] = useState(false);
+  const source = infoSource ?? fieldInfos;
+  return (
+    <span className="ml-1 cursor-pointer relative inline-block" tabIndex={0}
+      onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+      onBlur={() => setOpen(false)}
+      onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="inline align-middle">
+        <circle cx="12" cy="12" r="12" fill="#2563eb" />
+        <text x="12" y="13" textAnchor="middle" alignmentBaseline="middle" fontSize="13" fill="#fff" fontFamily="Arial" dominantBaseline="middle">i</text>
+      </svg>
+      {open && (
+        <div className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-64 bg-white border border-blue-200 rounded-lg shadow-lg p-3 text-xs text-gray-800 animate-fade-in" style={{ minWidth: '180px' }}>
+          {source[infoKey]}
+        </div>
+      )}
+    </span>
+  );
+}
 
 import { useState, useMemo } from "react";
 import fieldInfos from "./fieldInfos";
@@ -9,16 +32,20 @@ import baseResultInfos from "./baseResultInfos";
 interface Inputs {
   kaufpreis: number;
   eigenkapital: number;
+  // Kaufnebenkosten (Prozentwerte)
+  makler_percent: number;
+  grunderwerbsteuer_percent: number;
+  notar_percent: number;
+  grundbuch_percent: number;
   zinssatz_percent: number;
   tilgungssatz_percent: number;
   wochen_pro_jahr: number;
   mietpreis_pro_woche: number;
-  mietpreis_pro_tag: number; // NEU: Tagesmiete, verknüpft mit Wochenmiete
+  mietpreis_pro_tag: number;
   gebaeudeanteil_percent: number;
   afa_nutzungsdauer_jahre: number;
   einkommen_steuersatz_percent: number;
   anteil_vermietung_percent: number;
-  // Neue Kostenpositionen
   instandhaltung_percent: number;
   verwaltung_percent: number;
   leerstand_percent: number;
@@ -67,7 +94,17 @@ function round2(n: number) {
 function computeBaseResults(inputs: Inputs): Results {
   const afa_nutzungsdauer = inputs.afa_nutzungsdauer_jahre ?? 50;
 
-  const darlehenssumme = round2(inputs.kaufpreis - inputs.eigenkapital);
+  // Kaufnebenkosten berechnen
+  const makler = inputs.kaufpreis * pct(inputs.makler_percent);
+  const grunderwerbsteuer = inputs.kaufpreis * pct(inputs.grunderwerbsteuer_percent);
+  const notar = inputs.kaufpreis * pct(inputs.notar_percent);
+  const grundbuch = inputs.kaufpreis * pct(inputs.grundbuch_percent);
+  const gesamtkaufnebenkosten = makler + grunderwerbsteuer + notar + grundbuch;
+
+  // Gesamtkapitalbedarf = Kaufpreis + Nebenkosten
+  const kapitalbedarf = inputs.kaufpreis + gesamtkaufnebenkosten;
+  // Darlehenssumme = Kapitalbedarf - Eigenkapital
+  const darlehenssumme = round2(kapitalbedarf - inputs.eigenkapital);
   const zinskosten_jahr = round2(darlehenssumme * pct(inputs.zinssatz_percent));
   const tilgung_jahr = round2(darlehenssumme * pct(inputs.tilgungssatz_percent));
   const annuitaet_jahr = round2(zinskosten_jahr + tilgung_jahr);
@@ -175,24 +212,27 @@ export default function Home() {
   const [inputs, setInputs] = useState<Inputs>({
     kaufpreis: 320000,
     eigenkapital: 100000,
+    makler_percent: 3.57,
+    grunderwerbsteuer_percent: 6.5,
+    notar_percent: 1.5,
+    grundbuch_percent: 0.5,
     zinssatz_percent: 3.5,
     tilgungssatz_percent: 2,
     wochen_pro_jahr: 26,
     mietpreis_pro_woche: 1400,
-    mietpreis_pro_tag: 1400 / 7, // Initialwert synchron zur Wochenmiete
+    mietpreis_pro_tag: 1400 / 7,
     einkommen_steuersatz_percent: 30,
     gebaeudeanteil_percent: 80,
     afa_nutzungsdauer_jahre: 50,
     anteil_vermietung_percent: 70,
-    // Realistische Kostenpositionen mit Standardwerten
-    instandhaltung_percent: 1.5,           // 1,5% des Kaufpreises
-    verwaltung_percent: 12,                // 12% der Mieteinnahmen
-    leerstand_percent: 0,                  // Kein Leerstand als Ausgangswert
-    nebenkosten_jahr: 2400,               // 200€/Monat (Strom, Wasser, Internet, Grundsteuer)
-    buchungsgebuehren_percent: 8,          // 8% der Buchungen (Airbnb, Booking.com)
-    endreinigung_pro_gast: 80,            // 80€ pro Gast/Buchung
-    marketing_jahr: 1200,                  // 100€/Monat (Fotos, Anzeigen)
-    reparaturen_jahr: 500,                 // 500€/Jahr Reparaturen
+    instandhaltung_percent: 1.5,
+    verwaltung_percent: 12,
+    leerstand_percent: 0,
+    nebenkosten_jahr: 2400,
+    buchungsgebuehren_percent: 8,
+    endreinigung_pro_gast: 80,
+    marketing_jahr: 1200,
+    reparaturen_jahr: 500,
   });
 
   const result = useMemo(() => computeAll(inputs, 8, 40), [inputs]);
@@ -212,16 +252,19 @@ export default function Home() {
   const fieldLabels: Record<keyof Inputs, string> = {
     kaufpreis: "Kaufpreis (€)",
     eigenkapital: "Eigenkapital (€)",
+    makler_percent: "Maklerprovision (%)",
+    grunderwerbsteuer_percent: "Grunderwerbsteuer (%)",
+    notar_percent: "Notarkosten (%)",
+    grundbuch_percent: "Grundbuchkosten (%)",
     zinssatz_percent: "Zinssatz (%)",
     tilgungssatz_percent: "Tilgung (%)",
     wochen_pro_jahr: "Wochen pro Jahr",
     mietpreis_pro_woche: "Mietpreis pro Woche (€)",
-    mietpreis_pro_tag: "Mietpreis pro Tag (€)", // NEU: Label für Tagesmiete
+    mietpreis_pro_tag: "Mietpreis pro Tag (€)",
     einkommen_steuersatz_percent: "Steuersatz (%)",
     gebaeudeanteil_percent: "Gebäudeanteil (%)",
     anteil_vermietung_percent: "Anteil Vermietung (%)",
     afa_nutzungsdauer_jahre: "AfA Nutzungsdauer (Jahre)",
-    // Neue Kostenfelder
     instandhaltung_percent: "Instandhaltung (% Kaufpreis)",
     verwaltung_percent: "Verwaltung (% Mieteinnahmen)",
     leerstand_percent: "Leerstand (%)",
@@ -342,25 +385,8 @@ export default function Home() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-6 text-blue-700">💰 Grunddaten & Finanzierung</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Wochen pro Jahr als eigenes Feld */}
-              <div className="flex flex-col">
-                <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
-                  {fieldLabels.wochen_pro_jahr}
-                  <InfoIconWithPopover infoKey="wochen_pro_jahr" />
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="52"
-                  name="wochen_pro_jahr"
-                  value={String(inputs.wochen_pro_jahr)}
-                  onChange={handleChange}
-                  className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-              {/* Restliche Felder */}
-              {['kaufpreis', 'eigenkapital', 'zinssatz_percent', 'tilgungssatz_percent', 'mietpreis_pro_woche', 'mietpreis_pro_tag'].map((key, idx, arr) => (
+              {/* Kosten-Eingaben */}
+              {['kaufpreis', 'makler_percent', 'grunderwerbsteuer_percent', 'notar_percent', 'grundbuch_percent', 'eigenkapital'].map((key) => (
                 <div key={key} className="flex flex-col">
                   <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
                     {fieldLabels[key as keyof Inputs]}
@@ -371,25 +397,81 @@ export default function Home() {
                     step="any"
                     name={key}
                     value={String(inputs[key as keyof Inputs] ?? "")}
-                    onChange={e => {
-                      const value = parseFloat(e.target.value);
-                      if (key === 'mietpreis_pro_woche') {
-                        setInputs(i => ({ ...i, mietpreis_pro_woche: value, mietpreis_pro_tag: Math.round((value / 7) * 100) / 100 }));
-                      } else if (key === 'mietpreis_pro_tag') {
-                        setInputs(i => ({ ...i, mietpreis_pro_tag: value, mietpreis_pro_woche: Math.round((value * 7) * 100) / 100 }));
-                      } else {
-                        handleChange(e);
-                      }
-                    }}
+                    onChange={handleChange}
+                    className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              ))}
+              {/* Finanzierungseingaben */}
+              {['zinssatz_percent', 'tilgungssatz_percent'].map((key) => (
+                <div key={key} className="flex flex-col">
+                  <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                    {fieldLabels[key as keyof Inputs]}
+                    <InfoIconWithPopover infoKey={key} />
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    name={key}
+                    value={String(inputs[key as keyof Inputs] ?? "")}
+                    onChange={handleChange}
                     className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
               ))}
             </div>
+
+            {/* Kosten-Infobox */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-red-50 border border-red-300 rounded-xl p-4">
+                <h3 className="font-semibold text-red-700 mb-2">Kostenübersicht</h3>
+                <ul className="text-sm text-red-800 space-y-1">
+                  <li>Kaufpreis: {fmt(inputs.kaufpreis)}</li>
+                  <li>Makler: {fmt(inputs.kaufpreis * pct(inputs.makler_percent))}</li>
+                  <li>Grunderwerbsteuer: {fmt(inputs.kaufpreis * pct(inputs.grunderwerbsteuer_percent))}</li>
+                  <li>Notar: {fmt(inputs.kaufpreis * pct(inputs.notar_percent))}</li>
+                  <li>Grundbuch: {fmt(inputs.kaufpreis * pct(inputs.grundbuch_percent))}</li>
+                  <li className="font-bold mt-2">Gesamtkosten: {fmt(inputs.kaufpreis + inputs.kaufpreis * pct(inputs.makler_percent) + inputs.kaufpreis * pct(inputs.grunderwerbsteuer_percent) + inputs.kaufpreis * pct(inputs.notar_percent) + inputs.kaufpreis * pct(inputs.grundbuch_percent))}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+        {/* Potenzielle Einnahmen (eigener Bereich) */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 mt-8">
+          <h2 className="text-xl font-semibold mb-4 text-green-700">💶 Potenzielle Einnahmen</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {['mietpreis_pro_woche', 'wochen_pro_jahr', 'mietpreis_pro_tag'].map((key) => (
+              <div key={key} className="flex flex-col">
+                <label className="text-sm font-medium mb-2 text-gray-600 flex items-center gap-1 relative">
+                  {fieldLabels[key as keyof Inputs]}
+                  <InfoIconWithPopover infoKey={key} />
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  name={key}
+                  value={String(inputs[key as keyof Inputs] ?? "")}
+                  onChange={e => {
+                    const value = parseFloat(e.target.value);
+                    if (key === 'mietpreis_pro_woche') {
+                      setInputs(i => ({ ...i, mietpreis_pro_woche: value, mietpreis_pro_tag: Math.round((value / 7) * 100) / 100 }));
+                    } else if (key === 'mietpreis_pro_tag') {
+                      setInputs(i => ({ ...i, mietpreis_pro_tag: value, mietpreis_pro_woche: Math.round((value * 7) * 100) / 100 }));
+                    } else {
+                      handleChange(e);
+                    }
+                  }}
+                  className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
           </div>
 
           {/* Kosten */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
             <h2 className="text-xl font-semibold mb-6 text-red-700">🏠 Laufende Kosten</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['instandhaltung_percent', 'nebenkosten_jahr', 'reparaturen_jahr', 'marketing_jahr'].map((key) => (
@@ -412,7 +494,7 @@ export default function Home() {
           </div>
 
           {/* Variable Kosten */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
             <h2 className="text-xl font-semibold mb-6 text-orange-700">📊 Variable Kosten</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['verwaltung_percent', 'buchungsgebuehren_percent', 'endreinigung_pro_gast', 'leerstand_percent'].map((key) => (
@@ -435,7 +517,7 @@ export default function Home() {
           </div>
 
           {/* Steuerliche Parameter */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
             <h2 className="text-xl font-semibold mb-6 text-green-700">📋 Steuerliche Parameter</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['einkommen_steuersatz_percent', 'gebaeudeanteil_percent', 'anteil_vermietung_percent', 'afa_nutzungsdauer_jahre'].map((key) => (
@@ -458,8 +540,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Ergebnisse (Basiswerte) */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+  {/* Ergebnisse (Basiswerte) */}
+  <div className="bg-white rounded-xl shadow-lg p-6 mb-8 mt-8">
           <h2 className="text-xl font-semibold mb-6 text-gray-700">Basis-Ergebnisse</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(result.base).map(([key, value]) => (
@@ -543,8 +625,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Szenarientabelle */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+  {/* Szenarientabelle */}
+  <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
           <h2 className="text-xl font-semibold mb-6 text-gray-700">Szenarien (8–40 Wochen Vermietung)</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -587,8 +669,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Monte-Carlo-Simulation */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
+  {/* Monte-Carlo-Simulation */}
+  <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
           <h2 className="text-xl font-semibold mb-6 text-purple-700">🎲 Monte-Carlo-Simulation</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div className="flex flex-col">
@@ -677,8 +759,8 @@ export default function Home() {
           )}
         </div>
 
-        {/* Erklärung der Cashflow-Berechnung */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+  {/* Erklärung der Cashflow-Berechnung */}
+  <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-blue-800 mb-4">📊 Cashflow-Analyse verstehen</h3>
           <div className="space-y-4">
             
@@ -734,8 +816,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Kostenaufschlüsselung */}
-        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+  {/* Kostenaufschlüsselung */}
+  <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-yellow-800 mb-3">Berücksichtigte Kosten</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-yellow-700">
             <div>
@@ -746,6 +828,7 @@ export default function Home() {
                 <li>• Marketing: {fmt(inputs.marketing_jahr)}/Jahr</li>
                 <li>• Reparaturen: {fmt(inputs.reparaturen_jahr)}/Jahr</li>
               </ul>
+
             </div>
             <div>
               <h4 className="font-semibold mb-2">Variable Kosten:</h4>
@@ -759,8 +842,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Hinweise */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+  {/* Hinweise */}
+  <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-blue-800 mb-3">Wichtige Hinweise</h3>
           <ul className="text-sm text-blue-700 space-y-2">
             <li>• Die Berechnungen berücksichtigen jetzt realistische Kostenpositionen</li>
@@ -771,29 +854,6 @@ export default function Home() {
           </ul>
         </div>
       </div>
-    </div>
   );
 }
 
-// Info-Icon-Komponente mit Popover
-function InfoIconWithPopover({ infoKey, infoSource }: { infoKey: string, infoSource?: Record<string, string> }) {
-  const [open, setOpen] = useState(false);
-  const source = infoSource ?? fieldInfos;
-  return (
-    <span className="ml-1 cursor-pointer relative inline-block" tabIndex={0}
-      onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
-      onBlur={() => setOpen(false)}
-      onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="inline align-middle">
-        <circle cx="12" cy="12" r="12" fill="#2563eb" />
-        <text x="12" y="13" textAnchor="middle" alignmentBaseline="middle" fontSize="13" fill="#fff" fontFamily="Arial" dominantBaseline="middle">i</text>
-      </svg>
-      {open && (
-        <div className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-64 bg-white border border-blue-200 rounded-lg shadow-lg p-3 text-xs text-gray-800 animate-fade-in" style={{ minWidth: '180px' }}>
-          {source[infoKey]}
-        </div>
-      )}
-    </span>
-  );
-}

@@ -1,7 +1,11 @@
-// Info-Texte für alle Eingabefelder
 const fieldInfos: Record<string, string> = {
-  kaufpreis: "Gesamter Kaufpreis der Immobilie inklusive aller Nebenkosten (z.B. Notar, Grunderwerbsteuer, Makler).",
+  kaufpreis: "Reiner Kaufpreis der Immobilie (ohne Nebenkosten).",
+  darlehenssumme: "Darlehenssumme = Kaufpreis + Kaufnebenkosten (Makler, Grunderwerbsteuer, Notar, Grundbuch) minus Eigenkapital. Dies ist der Betrag, der finanziert werden muss.",
   eigenkapital: "Eigenes eingebrachtes Kapital. Je höher, desto geringer die Finanzierungssumme und die Zinslast.",
+  makler_percent: "Maklerprovision in Prozent des Kaufpreises. Üblich in Schleswig-Holstein: 3,57%.",
+  grunderwerbsteuer_percent: "Grunderwerbsteuer in Prozent des Kaufpreises. Schleswig-Holstein: 6,5%.",
+  notar_percent: "Notarkosten in Prozent des Kaufpreises. Üblich: 1,5%.",
+  grundbuch_percent: "Grundbuchkosten in Prozent des Kaufpreises. Üblich: 0,5%.",
   zinssatz_percent: "Effektiver Jahreszins des Darlehens in Prozent. Wird vom Kreditinstitut vorgegeben.",
   tilgungssatz_percent: "Jährlicher Tilgungssatz in Prozent der Darlehenssumme. Bestimmt, wie schnell das Darlehen zurückgezahlt wird.",
   wochen_pro_jahr: "Geplante Anzahl der Wochen pro Jahr, in denen die Immobilie vermietet werden soll.",
