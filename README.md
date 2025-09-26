@@ -1,21 +1,32 @@
+
 # Ferienhaus Vollrechner
 
-Eine moderne Webapp zur realistischen Berechnung der Rentabilität von Ferienhaus-Investitionen.
+Eine moderne Webapp zur realistischen Berechnung der Rentabilität von Ferienhaus-Investitionen – jetzt mit detaillierten Kaufnebenkosten, separatem Bereich für potenzielle Einnahmen und klarer Cashflow-Visualisierung.
 
 ## Features
 
 - **Vollständige Finanzanalyse**: Berechnung von Darlehenssumme, Zinsen, Tilgung, monatlicher Rate
 - **Realistische Kostenstruktur**: Alle laufenden, variablen und versteckten Kosten werden einzeln berücksichtigt
+- **Kaufnebenkosten**: Makler, Grunderwerbsteuer, Notar, Grundbuch – als Prozentwerte, Standard für Schleswig-Holstein
 - **Szenarioanalyse**: Detaillierte Darstellung verschiedener Vermietungsszenarien (8–40 Wochen)
+- **Potenzielle Einnahmen**: Eigener Bereich für Mietpreis pro Woche/Tag und geplante Vermietungswochen
 - **Steuerliche Optimierung**: Berücksichtigung von AfA (Abschreibung), absetzbaren Kosten und Steuersatz
 - **Info-Icons**: Jedes Eingabefeld hat ein Info-Icon mit verständlicher Erklärung
 - **Break-Even-Anzeige**: Zeigt ab welcher Woche das Investment nach Steuern und mit freiem Cashflow positiv wird
+- **Monte-Carlo-Simulation**: Zeigt Median des freien Cashflows/Jahr (grün bei positiv, rot bei negativ)
 - **Responsive Design**: Optimiert für Desktop und mobile Geräte
 - **Echtzeitberechnungen**: Sofortige Aktualisierung bei Änderung der Eingabeparameter
 
 ## Berechnungsgrundlagen
 
-Die Webapp berechnet folgende Werte:
+
+## Bedienung & Bereiche
+
+1. **Grunddaten & Finanzierung**: Kaufpreis, Eigenkapital, Kaufnebenkosten (Makler, Grunderwerbsteuer, Notar, Grundbuch), Zinssatz, Tilgung
+2. **Potenzielle Einnahmen**: Mietpreis pro Woche/Tag, geplante Vermietungswochen pro Jahr
+3. **Laufende Kosten & Variable Kosten**: Verwaltung, Instandhaltung, Leerstand, Buchungsgebühren, Endreinigung, Marketing, Reparaturen
+4. **Steuerliche Parameter**: Einkommensteuersatz, Gebäudeanteil, AfA, Anteil Vermietung
+5. **Ergebnisse & Simulation**: Basiswerte, Szenarientabelle, Monte-Carlo-Simulation (Median freier Cashflow/Jahr)
 
 ### Basis-Ergebnisse
 - Darlehenssumme (Kaufpreis - Eigenkapital)
@@ -66,12 +77,17 @@ Jedes Eingabefeld hat ein Info-Icon mit einer kurzen Erklärung zum Zweck und zu
 
 | Parameter                | Beschreibung                                                                 | Standardwert |
 |--------------------------|------------------------------------------------------------------------------|-------------|
-| Kaufpreis                | Gesamter Kaufpreis inkl. Nebenkosten                                         | 320.000 €   |
+| Kaufpreis                | Gesamter Kaufpreis (ohne Nebenkosten)                                        | 320.000 €   |
+| Maklerprovision (%)      | Maklerkosten in Prozent des Kaufpreises                                      | 3,57 %      |
+| Grunderwerbsteuer (%)   | Grunderwerbsteuer in Prozent des Kaufpreises                                 | 6,5 %       |
+| Notar (%)               | Notarkosten in Prozent des Kaufpreises                                       | 1,5 %       |
+| Grundbuch (%)           | Grundbuchkosten in Prozent des Kaufpreises                                   | 0,5 %       |
 | Eigenkapital             | Eigenes eingebrachtes Kapital                                                | 100.000 €   |
 | Zinssatz                 | Effektiver Jahreszins des Darlehens (%)                                      | 3,5 %       |
 | Tilgung                  | Jährlicher Tilgungssatz (%)                                                  | 2 %         |
-| Wochen pro Jahr          | Geplante Vermietungswochen pro Jahr                                          | 26          |
-| Mietpreis pro Woche      | Durchschnittlicher Mietpreis pro Woche                                       | 1.400 €     |
+| Wochen pro Jahr          | Geplante Vermietungswochen pro Jahr (Potenzielle Einnahmen)                  | 26          |
+| Mietpreis pro Woche      | Durchschnittlicher Mietpreis pro Woche (Potenzielle Einnahmen)               | 1.400 €     |
+| Mietpreis pro Tag        | Durchschnittlicher Mietpreis pro Tag (Potenzielle Einnahmen)                 | 200 €       |
 | Instandhaltung           | Rücklage für Instandhaltung (% vom Kaufpreis)                                | 1,5 %       |
 | Nebenkosten              | Jährliche Nebenkosten (Strom, Wasser, Grundsteuer, etc.)                     | 2.400 €     |
 | Reparaturen              | Rücklage für Reparaturen pro Jahr                                            | 500 €       |
@@ -85,14 +101,17 @@ Jedes Eingabefeld hat ein Info-Icon mit einer kurzen Erklärung zum Zweck und zu
 | Anteil Vermietung        | Anteil der Zeit, in der vermietet wird (%)                                   | 70 %        |
 | AfA Nutzungsdauer        | Abschreibungsdauer für das Gebäude (Jahre, Standard: 50)                     | 50          |
 
-## Neue UI-Features
+## Neue UI-Features & Visualisierung
 
 - **Info-Icons**: Bei jedem Eingabefeld, mit Mouseover/Klick erscheint eine verständliche Erklärung
 - **Break-Even-Anzeige**: Zeigt ab welcher Woche das Investment nach Steuern und mit freiem Cashflow positiv wird
 - **Farbkodierte Eingabebereiche**: Grunddaten (blau), Kosten (rot/orange), Steuern (grün)
+- **Potenzielle Einnahmen**: Eigener weißer Bereich zwischen Grunddaten & Kosten
+- **Monte-Carlo-Simulation**: Median freier Cashflow/Jahr, grün bei positivem, rot bei negativem Wert
 - **Alle Kosten transparent einzeln sichtbar**
 
 ## Wichtige Hinweise
+
 
 ⚠️ **Haftungsausschluss**: Die Berechnungen stellen Näherungswerte dar und ersetzen keine professionelle Steuer- oder Finanzberatung.
 
